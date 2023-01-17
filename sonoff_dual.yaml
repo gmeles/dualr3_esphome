@@ -1,0 +1,127 @@
+esphome:
+  name: cover
+
+esp32:
+  board: esp32dev
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid1
+    password: !secret wifi_password1
+  - ssid: !secret wifi_ssid2
+    password: !secret wifi_password2
+
+  ap:
+    ssid: "Shutter Hotspot"
+    password: !secret wifi_ap_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+api:
+
+ota:
+
+# logger:
+#   baud_rate: 0
+
+uart:
+  tx_pin: GPIO25
+  rx_pin: GPIO26
+  baud_rate: 4800
+  parity: NONE
+  stop_bits: 2
+
+sensor:
+  - platform: bl0939
+    update_interval: 1s
+    voltage:
+      name: 'BL0939 Voltage'
+    current_1:
+      name: 'BL0939 Current 1'
+      id: 'open_current_sensor'
+    current_2:
+      name: 'BL0939 Current 2'
+      id: 'close_current_sensor'
+    active_power_1:
+      name: 'BL0939 Active Power 1'
+    active_power_2:
+      name: 'BL0939 Active Power 2'
+    energy_1:
+      name: 'BL0939 Energy 1'
+    energy_2:
+      name: 'BL0939 Energy 2'
+    energy_total:
+      name: 'BL0939 Energy Total'
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+binary_sensor:
+- platform: gpio
+  pin:
+    number: GPIO10
+    inverted: true
+  id: button
+
+- platform: gpio
+  pin:
+    number: GPIO32
+    mode:
+      input: true
+      pullup: true
+    inverted: true
+  name: "Physical Button 1"
+  on_press:
+    - cover.open: shutter1
+  on_release:
+    - cover.stop: shutter1
+
+- platform: gpio
+  pin:
+    number: GPIO33
+    mode:
+      input: true
+      pullup: true
+    inverted: true
+  name: "Physical Button 2"
+  on_press:
+    - cover.close: shutter1
+  on_release:
+    - cover.stop: shutter1
+switch:
+- platform: gpio
+  pin: GPIO27
+  interlock: &interlock [open_cover, close_cover]
+  id: open_cover
+- platform: gpio
+  pin: GPIO14
+  interlock: *interlock
+  id: close_cover
+
+cover:
+  - platform: current_based
+    name: "Current Based Cover"
+    id: shutter1
+    open_sensor: open_current_sensor
+    open_moving_current_threshold: 0.01
+    open_obstacle_current_threshold: 1
+    open_duration: 36s
+    open_action:
+      - switch.turn_on: open_cover
+
+    close_sensor: close_current_sensor
+    close_moving_current_threshold: 0.01
+    close_obstacle_current_threshold: 1
+    close_duration: 33s
+    close_action:
+      - switch.turn_on: close_cover
+
+    stop_action:
+      - switch.turn_off: close_cover
+      - switch.turn_off: open_cover
+
+    obstacle_rollback: 30%
+    start_sensing_delay: 2s
